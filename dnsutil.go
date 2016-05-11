@@ -63,34 +63,6 @@ func (d *Dig) SetDNS(IP string) {
 	}
 	d.RemoteAddr = fmt.Sprintf("%s:53", IP)
 }
-
-func (d *Dig) A(domain string) ([]*dns.A, error) {
-	var err error
-	c := new(dns.Conn)
-	c.Conn, err = d.conn()
-	if err != nil {
-		return nil, err
-	}
-	defer c.Close()
-	c.SetWriteDeadline(time.Now().Add(d.writeTimeout()))
-	c.SetReadDeadline(time.Now().Add(d.readTimeout()))
-	m := newMsg(dns.TypeA, domain)
-	err = c.WriteMsg(m)
-	if err != nil {
-		return nil, err
-	}
-	res, err := c.ReadMsg()
-	if err != nil {
-		return nil, err
-	}
-	var As []*dns.A
-	for _, v := range res.Answer {
-		if a, ok := v.(*dns.A); ok {
-			As = append(As, a)
-		}
-	}
-	return As, nil
-}
 func newMsg(Type uint16, domain string) *dns.Msg {
 	if !strings.HasSuffix(domain, ".") {
 		domain = fmt.Sprintf("%s.", domain)
@@ -105,4 +77,38 @@ func newMsg(Type uint16, domain string) *dns.Msg {
 		Qclass: dns.ClassINET,
 	}
 	return msg
+}
+func (d *Dig) exchange(m *dns.Msg) (*dns.Msg, error) {
+	var err error
+	c := new(dns.Conn)
+	c.Conn, err = d.conn()
+	if err != nil {
+		return nil, err
+	}
+	defer c.Close()
+	c.SetWriteDeadline(time.Now().Add(d.writeTimeout()))
+	c.SetReadDeadline(time.Now().Add(d.readTimeout()))
+	err = c.WriteMsg(m)
+	if err != nil {
+		return nil, err
+	}
+	res, err := c.ReadMsg()
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+func (d *Dig) A(domain string) ([]*dns.A, error) {
+	m := newMsg(dns.TypeA, domain)
+	res, err := d.exchange(m)
+	if err != nil {
+		return nil, err
+	}
+	var As []*dns.A
+	for _, v := range res.Answer {
+		if a, ok := v.(*dns.A); ok {
+			As = append(As, a)
+		}
+	}
+	return As, nil
 }
