@@ -156,8 +156,8 @@ func (d *Dig) TXT(domain string) ([]*dns.TXT, error) {
 	return T, nil
 }
 func (d *Dig) MX(domain string) ([]*dns.MX, error) {
-	m := newMsg(dns.TypeMX, domain)
-	res, err := d.exchange(m)
+	msg := newMsg(dns.TypeMX, domain)
+	res, err := d.exchange(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -168,4 +168,12 @@ func (d *Dig) MX(domain string) ([]*dns.MX, error) {
 		}
 	}
 	return M, nil
+}
+func (d *Dig) ANY(domain string) ([]dns.RR, error) {
+	m := newMsg(dns.TypeANY, domain)
+	res, err := d.exchange(m)
+	if err != nil {
+		return nil, err
+	}
+	return res.Answer, nil
 }
