@@ -57,12 +57,7 @@ func (d *Dig) conn() (net.Conn, error) {
 	}
 	return dialer.Dial("udp", d.remoteAddr())
 }
-func (d *Dig) SetDNS(IP string) {
-	if strings.HasSuffix(IP, ":53") {
-		d.RemoteAddr = IP
-	}
-	d.RemoteAddr = fmt.Sprintf("%s:53", IP)
-}
+
 func newMsg(Type uint16, domain string) *dns.Msg {
 	if !strings.HasSuffix(domain, ".") {
 		domain = fmt.Sprintf("%s.", domain)
@@ -98,6 +93,12 @@ func (d *Dig) exchange(m *dns.Msg) (*dns.Msg, error) {
 	}
 	return res, nil
 }
+func (d *Dig) SetDNS(IP string) {
+	if strings.HasSuffix(IP, ":53") {
+		d.RemoteAddr = IP
+	}
+	d.RemoteAddr = fmt.Sprintf("%s:53", IP)
+}
 func (d *Dig) A(domain string) ([]*dns.A, error) {
 	m := newMsg(dns.TypeA, domain)
 	res, err := d.exchange(m)
@@ -111,4 +112,60 @@ func (d *Dig) A(domain string) ([]*dns.A, error) {
 		}
 	}
 	return As, nil
+}
+func (d *Dig) NS(domain string) ([]*dns.NS, error) {
+	m := newMsg(dns.TypeNS, domain)
+	res, err := d.exchange(m)
+	if err != nil {
+		return nil, err
+	}
+	var Ns []*dns.NS
+	for _, v := range res.Answer {
+		if ns, ok := v.(*dns.NS); ok {
+			Ns = append(Ns, ns)
+		}
+	}
+	return Ns, nil
+}
+func (d *Dig) CNAME(domain string) ([]*dns.CNAME, error) {
+	m := newMsg(dns.TypeCNAME, domain)
+	res, err := d.exchange(m)
+	if err != nil {
+		return nil, err
+	}
+	var C []*dns.CNAME
+	for _, v := range res.Answer {
+		if c, ok := v.(*dns.CNAME); ok {
+			C = append(C, c)
+		}
+	}
+	return C, nil
+}
+func (d *Dig) TXT(domain string) ([]*dns.TXT, error) {
+	m := newMsg(dns.TypeTXT, domain)
+	res, err := d.exchange(m)
+	if err != nil {
+		return nil, err
+	}
+	var T []*dns.TXT
+	for _, v := range res.Answer {
+		if t, ok := v.(*dns.TXT); ok {
+			T = append(T, t)
+		}
+	}
+	return T, nil
+}
+func (d *Dig) MX(domain string) ([]*dns.MX, error) {
+	m := newMsg(dns.TypeMX, domain)
+	res, err := d.exchange(m)
+	if err != nil {
+		return nil, err
+	}
+	var M []*dns.MX
+	for _, v := range res.Answer {
+		if m, ok := v.(*dns.MX); ok {
+			M = append(M, m)
+		}
+	}
+	return M, nil
 }
