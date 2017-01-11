@@ -155,6 +155,7 @@ func (d *Dig) TXT(domain string) ([]*dns.TXT, error) {
 	}
 	return T, nil
 }
+
 func (d *Dig) MX(domain string) ([]*dns.MX, error) {
 	msg := newMsg(dns.TypeMX, domain)
 	res, err := d.exchange(msg)
@@ -169,6 +170,22 @@ func (d *Dig) MX(domain string) ([]*dns.MX, error) {
 	}
 	return M, nil
 }
+
+func (d *Dig) SRV(domain string) ([]*dns.SRV, error) {
+	msg := newMsg(dns.TypeSRV, domain)
+	res, err := d.exchange(msg)
+	if err != nil {
+		return nil, err
+	}
+	var S []*dns.SRV
+	for _, v := range res.Answer {
+		if s, ok := v.(*dns.SRV); ok {
+			S = append(S, s)
+		}
+	}
+	return S, nil
+}
+
 func (d *Dig) ANY(domain string) ([]dns.RR, error) {
 	m := newMsg(dns.TypeANY, domain)
 	res, err := d.exchange(m)
