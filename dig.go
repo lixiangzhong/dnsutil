@@ -59,9 +59,7 @@ func (d *Dig) conn() (net.Conn, error) {
 }
 
 func newMsg(Type uint16, domain string) *dns.Msg {
-	if !strings.HasSuffix(domain, ".") {
-		domain = fmt.Sprintf("%s.", domain)
-	}
+	domain = dns.Fqdn(domain)
 	msg := new(dns.Msg)
 	msg.Id = dns.Id()
 	msg.RecursionDesired = true
@@ -193,4 +191,18 @@ func (d *Dig) ANY(domain string) ([]dns.RR, error) {
 		return nil, err
 	}
 	return res.Answer, nil
+}
+
+func (d *Dig) Test(Type uint16, domain string) ([]dns.RR, error) {
+	m := newMsg(Type, domain)
+	res, err := d.exchange(m)
+	if err != nil {
+		return nil, err
+	}
+	return res.Answer, nil
+}
+
+func (d *Dig) Test2(Type uint16, domain string) (*dns.Msg, error) {
+	m := newMsg(Type, domain)
+	return d.exchange(m)
 }
