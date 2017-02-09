@@ -2,7 +2,6 @@ package dnsutil
 
 import (
 	"errors"
-	"fmt"
 	"github.com/miekg/dns"
 	"net"
 	"strings"
@@ -19,6 +18,14 @@ type Dig struct {
 	DialTimeout  time.Duration
 	WriteTimeout time.Duration
 	ReadTimeout  time.Duration
+	Protocol     string
+}
+
+func (d *Dig) protocol() string {
+	if d.Protocol != "" {
+		return d.Protocol
+	}
+	return "udp"
 }
 
 func (d *Dig) dialTimeout() time.Duration {
@@ -40,25 +47,39 @@ func (d *Dig) writeTimeout() time.Duration {
 	return dnsTimeout
 }
 func (d *Dig) remoteAddr() string {
-	if strings.HasSuffix(d.RemoteAddr, ":53") {
-		return d.RemoteAddr
+	_, _, err := net.SplitHostPort(d.RemoteAddr)
+	if err != nil {
+		panic(err)
 	}
-	return fmt.Sprintf("%s:53", d.RemoteAddr)
+	return d.RemoteAddr
 }
 func (d *Dig) conn() (net.Conn, error) {
 	if d.LocalAddr == "" {
-		return net.DialTimeout("udp", d.remoteAddr(), d.dialTimeout())
+		return net.DialTimeout(d.protocol(), d.remoteAddr(), d.dialTimeout())
 	}
-	dialer := new(net.Dialer)
-	dialer.Timeout = d.dialTimeout()
-	var err error
-	dialer.LocalAddr, err = net.ResolveUDPAddr("udp", d.LocalAddr+":0")
-	if err != nil {
-		return nil, err
-	}
-	return dialer.Dial("udp", d.remoteAddr())
+	return dial(d.protocol(), d.LocalAddr, d.remoteAddr(), d.dialTimeout())
 }
-
+func dial(network string, local string, remote string, timeout time.Duration) (net.Conn, error) {
+	network = strings.ToLower(network)
+	dialer := new(net.Dialer)
+	dialer.Timeout = timeout
+	local = local + ":0" //端口0,系统会自动分配本机端口
+	switch network {
+	case "udp":
+		addr, err := net.ResolveUDPAddr(network, local)
+		if err != nil {
+			return nil, err
+		}
+		dialer.LocalAddr = addr
+	case "tcp":
+		addr, err := net.ResolveTCPAddr(network, local)
+		if err != nil {
+			return nil, err
+		}
+		dialer.LocalAddr = addr
+	}
+	return dialer.Dial(network, remote)
+}
 func newMsg(Type uint16, domain string) *dns.Msg {
 	domain = dns.Fqdn(domain)
 	msg := new(dns.Msg)
@@ -93,16 +114,16 @@ func (d *Dig) exchange(m *dns.Msg) (*dns.Msg, error) {
 	return res, nil
 }
 func (d *Dig) SetDNS(IP string) error {
-	ip, port, err := net.SplitHostPort(IP)
+	ip, _, err := net.SplitHostPort(IP)
 	if err != nil || net.ParseIP(ip) == nil {
 		if err != nil {
 			return err
 		} else {
-			errors.New("error: parse ip")
+			return errors.New("error: parse ip")
 		}
-		return
 	}
 	d.RemoteAddr = IP
+	return nil
 }
 func (d *Dig) A(domain string) ([]*dns.A, error) {
 	m := newMsg(dns.TypeA, domain)
