@@ -1,6 +1,7 @@
 package dnsutil
 
 import (
+	"errors"
 	"fmt"
 	"github.com/miekg/dns"
 	"net"
@@ -91,11 +92,17 @@ func (d *Dig) exchange(m *dns.Msg) (*dns.Msg, error) {
 	}
 	return res, nil
 }
-func (d *Dig) SetDNS(IP string) {
-	if strings.HasSuffix(IP, ":53") {
-		d.RemoteAddr = IP
+func (d *Dig) SetDNS(IP string) error {
+	ip, port, err := net.SplitHostPort(IP)
+	if err != nil || net.ParseIP(ip) == nil {
+		if err != nil {
+			return err
+		} else {
+			errors.New("error: parse ip")
+		}
+		return
 	}
-	d.RemoteAddr = fmt.Sprintf("%s:53", IP)
+	d.RemoteAddr = IP
 }
 func (d *Dig) A(domain string) ([]*dns.A, error) {
 	m := newMsg(dns.TypeA, domain)
