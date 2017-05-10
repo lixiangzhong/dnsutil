@@ -15,6 +15,7 @@ const (
 type Dig struct {
 	LocalAddr    string
 	RemoteAddr   string
+	EDNSSubnet   net.IP
 	DialTimeout  time.Duration
 	WriteTimeout time.Duration
 	ReadTimeout  time.Duration
@@ -49,7 +50,7 @@ func (d *Dig) writeTimeout() time.Duration {
 func (d *Dig) remoteAddr() string {
 	_, _, err := net.SplitHostPort(d.RemoteAddr)
 	if err != nil {
-		panic(err)
+		panic(errors.New("forget SetDNS ? " + err.Error()))
 	}
 	return d.RemoteAddr
 }
@@ -80,6 +81,11 @@ func dial(network string, local string, remote string, timeout time.Duration) (n
 	}
 	return dialer.Dial(network, remote)
 }
+
+func NewMsg(Type uint16, domain string) *dns.Msg {
+	return newMsg(Type, domain)
+}
+
 func newMsg(Type uint16, domain string) *dns.Msg {
 	domain = dns.Fqdn(domain)
 	msg := new(dns.Msg)
@@ -93,6 +99,11 @@ func newMsg(Type uint16, domain string) *dns.Msg {
 	}
 	return msg
 }
+
+func (d *Dig) Exchange(m *dns.Msg) (*dns.Msg, error) {
+	return d.exchange(m)
+}
+
 func (d *Dig) exchange(m *dns.Msg) (*dns.Msg, error) {
 	var err error
 	c := new(dns.Conn)
@@ -103,6 +114,7 @@ func (d *Dig) exchange(m *dns.Msg) (*dns.Msg, error) {
 	defer c.Close()
 	c.SetWriteDeadline(time.Now().Add(d.writeTimeout()))
 	c.SetReadDeadline(time.Now().Add(d.readTimeout()))
+	d.edns0clientsubnet(m)
 	err = c.WriteMsg(m)
 	if err != nil {
 		return nil, err
@@ -125,6 +137,15 @@ func (d *Dig) SetDNS(IP string) error {
 	d.RemoteAddr = IP
 	return nil
 }
+func (d *Dig) SetEDNS0ClientSubnet(clientip string) error {
+	ip := net.ParseIP(clientip)
+	if ip.To4() == nil {
+		return errors.New("not a ipv4")
+	}
+	d.EDNSSubnet = ip
+	return nil
+}
+
 func (d *Dig) A(domain string) ([]*dns.A, error) {
 	m := newMsg(dns.TypeA, domain)
 	res, err := d.exchange(m)
@@ -221,7 +242,7 @@ func (d *Dig) ANY(domain string) ([]dns.RR, error) {
 	return res.Answer, nil
 }
 
-func (d *Dig) Test(Type uint16, domain string) ([]dns.RR, error) {
+func (d *Dig) GetRR(Type uint16, domain string) ([]dns.RR, error) {
 	m := newMsg(Type, domain)
 	res, err := d.exchange(m)
 	if err != nil {
@@ -230,7 +251,24 @@ func (d *Dig) Test(Type uint16, domain string) ([]dns.RR, error) {
 	return res.Answer, nil
 }
 
-func (d *Dig) Test2(Type uint16, domain string) (*dns.Msg, error) {
+func (d *Dig) GetMsg(Type uint16, domain string) (*dns.Msg, error) {
 	m := newMsg(Type, domain)
 	return d.exchange(m)
+}
+
+func (d *Dig) edns0clientsubnet(m *dns.Msg) {
+	if d.EDNSSubnet == nil {
+		return
+	}
+	e := &dns.EDNS0_SUBNET{
+		Code:          dns.EDNS0SUBNET,
+		Family:        1,  //ipv4
+		SourceNetmask: 32, //ipv4
+		Address:       d.EDNSSubnet,
+	}
+	o := new(dns.OPT)
+	o.Hdr.Name = "."
+	o.Hdr.Rrtype = dns.TypeOPT
+	o.Option = append(o.Option, e)
+	m.Extra = append(m.Extra, o)
 }
