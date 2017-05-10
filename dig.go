@@ -125,16 +125,25 @@ func (d *Dig) exchange(m *dns.Msg) (*dns.Msg, error) {
 	}
 	return res, nil
 }
-func (d *Dig) SetDNS(IP string) error {
-	ip, _, err := net.SplitHostPort(IP)
-	if err != nil || net.ParseIP(ip) == nil {
-		if err != nil {
-			return err
+func (d *Dig) SetDNS(host string) error {
+	h, port, err := net.SplitHostPort(host)
+	if err != nil {
+		if strings.Contains(err.Error(), "missing port") {
+			h = host
+			port = "53"
+			err = nil
 		} else {
-			return errors.New("error: parse ip")
+			return err
 		}
 	}
-	d.RemoteAddr = IP
+	ip, err := net.LookupIP(h)
+	if err != nil || len(ip) < 1 {
+		if err == nil {
+			return errors.New("host can't resolv")
+		}
+		return err
+	}
+	d.RemoteAddr = ip[0].String() + ":" + port
 	return nil
 }
 func (d *Dig) SetEDNS0ClientSubnet(clientip string) error {
