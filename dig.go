@@ -125,6 +125,13 @@ func (d *Dig) exchange(m *dns.Msg) (*dns.Msg, error) {
 	}
 	return res, nil
 }
+
+func (d *Dig) SetTimeOut(t time.Duration) {
+	d.ReadTimeout = t
+	d.WriteTimeout = t
+	d.DialTimeout = t
+}
+
 func (d *Dig) SetDNS(host string) error {
 	h, port, err := net.SplitHostPort(host)
 	if err != nil {
@@ -146,6 +153,7 @@ func (d *Dig) SetDNS(host string) error {
 	d.RemoteAddr = ip[0].String() + ":" + port
 	return nil
 }
+
 func (d *Dig) SetEDNS0ClientSubnet(clientip string) error {
 	ip := net.ParseIP(clientip)
 	if ip.To4() == nil {
@@ -169,6 +177,7 @@ func (d *Dig) A(domain string) ([]*dns.A, error) {
 	}
 	return As, nil
 }
+
 func (d *Dig) NS(domain string) ([]*dns.NS, error) {
 	m := newMsg(dns.TypeNS, domain)
 	res, err := d.exchange(m)
