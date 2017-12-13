@@ -1,6 +1,10 @@
 # dnsutil
 ####Golang DNS  dig功能库
+
+go get github.com/lixiangzhong/dnsutil
 ```go
+import "github.com/lixiangzhong/dnsutil"
+
 dig:=dnsutil.new(Dig)
 dig.SetDNS("8.8.8.8") //or ns.xxx.com
 //dig.SetEDNS0ClientSubnet("1.1.1.1") 
