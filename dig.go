@@ -206,6 +206,22 @@ func (d *Dig) CNAME(domain string) ([]*dns.CNAME, error) {
 	}
 	return C, nil
 }
+
+func (d *Dig) PTR(domain string) ([]*dns.PTR, error) {
+	m := newMsg(dns.TypePTR, domain)
+	res, err := d.exchange(m)
+	if err != nil {
+		return nil, err
+	}
+	var P []*dns.PTR
+	for _, v := range res.Answer {
+		if p, ok := v.(*dns.PTR); ok {
+			P = append(P, p)
+		}
+	}
+	return P, nil
+}
+
 func (d *Dig) TXT(domain string) ([]*dns.TXT, error) {
 	m := newMsg(dns.TypeTXT, domain)
 	res, err := d.exchange(m)
@@ -219,6 +235,21 @@ func (d *Dig) TXT(domain string) ([]*dns.TXT, error) {
 		}
 	}
 	return T, nil
+}
+
+func (d *Dig) AAAA(domain string) ([]*dns.AAAA, error) {
+	m := newMsg(dns.TypeAAAA, domain)
+	res, err := d.exchange(m)
+	if err != nil {
+		return nil, err
+	}
+	var aaaa []*dns.AAAA
+	for _, v := range res.Answer {
+		if a, ok := v.(*dns.AAAA); ok {
+			aaaa = append(aaaa, a)
+		}
+	}
+	return aaaa, nil
 }
 
 func (d *Dig) MX(domain string) ([]*dns.MX, error) {
