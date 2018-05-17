@@ -1,5 +1,5 @@
 # dnsutil
-####Golang DNS  dig功能库
+#### Golang DNS  dig功能库
 
 go get github.com/lixiangzhong/dnsutil
 ```go
