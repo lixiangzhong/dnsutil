@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/lixiangzhong/dnsutil.svg?branch=master)](https://travis-ci.org/lixiangzhong/dnsutil)
+[![Code Coverage](https://img.shields.io/codecov/c/lixiangzhong/dnsutil/master.svg)](https://codecov.io/github/lixiangzhong/dnsutil?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/lixiangzhong/dnsutil)](https://goreportcard.com/report/lixiangzhong/dnsutil)
 [![](https://godoc.org/github.com/lixiangzhong/dnsutil?status.svg)](https://godoc.org/github.com/lixiangzhong/dnsutil)
 
