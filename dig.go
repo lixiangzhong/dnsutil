@@ -138,25 +138,34 @@ func (d *Dig) SetTimeOut(t time.Duration) {
 }
 
 func (d *Dig) SetDNS(host string) error {
-	h, port, err := net.SplitHostPort(host)
-	if err != nil {
-		if strings.Contains(err.Error(), "missing port") {
-			h = host
-			port = "53"
-			err = nil
-		} else {
+	var ip string
+	port := "53"
+	switch strings.Count(host, ":") {
+	case 0: //ipv4 or domain
+		ip = host
+	case 1: //ipv4 or domain
+		var err error
+		ip, port, err = net.SplitHostPort(host)
+		if err != nil {
 			return err
 		}
-	}
-	ip, err := net.LookupIP(h)
-	if err != nil || len(ip) < 1 {
-		if err == nil {
-			return errors.New("host can't resolv")
+	default: //ipv6
+		if net.ParseIP(host).To16() != nil {
+			ip = host
+		} else {
+			ip = host[:strings.LastIndex(host, ":")]
+			port = host[strings.LastIndex(host, ":")+1:]
 		}
+	}
+	ips, err := net.LookupIP(ip)
+	if err != nil {
 		return err
 	}
-	d.RemoteAddr = fmt.Sprintf("[%s]:%v", ip[0], port)
-	return nil
+	for _, addr := range ips {
+		d.RemoteAddr = fmt.Sprintf("[%s]:%v", addr, port)
+		return nil
+	}
+	return errors.New("no such host")
 }
 
 func (d *Dig) SetEDNS0ClientSubnet(clientip string) error {
