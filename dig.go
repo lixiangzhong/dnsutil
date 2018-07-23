@@ -47,18 +47,22 @@ func (d *Dig) writeTimeout() time.Duration {
 	}
 	return dnsTimeout
 }
-func (d *Dig) remoteAddr() string {
+func (d *Dig) remoteAddr() (string, error) {
 	_, _, err := net.SplitHostPort(d.RemoteAddr)
 	if err != nil {
-		panic(errors.New("forget SetDNS ? " + err.Error()))
+		return d.RemoteAddr, errors.New("forget SetDNS ? " + err.Error())
 	}
-	return d.RemoteAddr
+	return d.RemoteAddr, nil
 }
 func (d *Dig) conn() (net.Conn, error) {
-	if d.LocalAddr == "" {
-		return net.DialTimeout(d.protocol(), d.remoteAddr(), d.dialTimeout())
+	remoteaddr, err := d.remoteAddr()
+	if err != nil {
+		return nil, err
 	}
-	return dial(d.protocol(), d.LocalAddr, d.remoteAddr(), d.dialTimeout())
+	if d.LocalAddr == "" {
+		return net.DialTimeout(d.protocol(), remoteaddr, d.dialTimeout())
+	}
+	return dial(d.protocol(), d.LocalAddr, remoteaddr, d.dialTimeout())
 }
 func dial(network string, local string, remote string, timeout time.Duration) (net.Conn, error) {
 	network = strings.ToLower(network)
