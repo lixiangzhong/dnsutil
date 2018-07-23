@@ -2,6 +2,7 @@ package dnsutil
 
 import (
 	"errors"
+	"fmt"
 	"github.com/miekg/dns"
 	"net"
 	"strings"
@@ -154,7 +155,7 @@ func (d *Dig) SetDNS(host string) error {
 		}
 		return err
 	}
-	d.RemoteAddr = ip[0].String() + ":" + port
+	d.RemoteAddr = fmt.Sprintf("[%s]:%v", ip[0], port)
 	return nil
 }
 
