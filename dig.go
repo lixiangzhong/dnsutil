@@ -13,6 +13,8 @@ const (
 	dnsTimeout time.Duration = 3 * time.Second
 )
 
+var roots = []string{"a.root-servers.net", "b.root-servers.net", "d.root-servers.net", "c.root-servers.net", "e.root-servers.net", "f.root-servers.net", "g.root-servers.net", "h.root-servers.net", "i.root-servers.net", "j.root-servers.net", "k.root-servers.net", "l.root-servers.net", "m.root-servers.net"}
+
 type Dig struct {
 	LocalAddr    string
 	RemoteAddr   string
@@ -21,6 +23,7 @@ type Dig struct {
 	WriteTimeout time.Duration
 	ReadTimeout  time.Duration
 	Protocol     string
+	Retry        int
 }
 
 func (d *Dig) protocol() string {
@@ -42,12 +45,21 @@ func (d *Dig) readTimeout() time.Duration {
 	}
 	return dnsTimeout
 }
+
 func (d *Dig) writeTimeout() time.Duration {
 	if d.WriteTimeout != 0 {
 		return d.WriteTimeout
 	}
 	return dnsTimeout
 }
+
+func (d *Dig) retry() int {
+	if d.Retry > 0 {
+		return d.Retry
+	}
+	return 1
+}
+
 func (d *Dig) remoteAddr() (string, error) {
 	_, _, err := net.SplitHostPort(d.RemoteAddr)
 	if err != nil {
@@ -106,7 +118,15 @@ func newMsg(Type uint16, domain string) *dns.Msg {
 }
 
 func (d *Dig) Exchange(m *dns.Msg) (*dns.Msg, error) {
-	return d.exchange(m)
+	var msg *dns.Msg
+	var err error
+	for i := 0; i < d.retry(); i++ {
+		msg, err = d.exchange(m)
+		if err == nil {
+			return msg, err
+		}
+	}
+	return msg, err
 }
 
 func (d *Dig) exchange(m *dns.Msg) (*dns.Msg, error) {
@@ -179,7 +199,7 @@ func (d *Dig) SetEDNS0ClientSubnet(clientip string) error {
 
 func (d *Dig) A(domain string) ([]*dns.A, error) {
 	m := newMsg(dns.TypeA, domain)
-	res, err := d.exchange(m)
+	res, err := d.Exchange(m)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +214,7 @@ func (d *Dig) A(domain string) ([]*dns.A, error) {
 
 func (d *Dig) NS(domain string) ([]*dns.NS, error) {
 	m := newMsg(dns.TypeNS, domain)
-	res, err := d.exchange(m)
+	res, err := d.Exchange(m)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +228,7 @@ func (d *Dig) NS(domain string) ([]*dns.NS, error) {
 }
 func (d *Dig) CNAME(domain string) ([]*dns.CNAME, error) {
 	m := newMsg(dns.TypeCNAME, domain)
-	res, err := d.exchange(m)
+	res, err := d.Exchange(m)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +243,7 @@ func (d *Dig) CNAME(domain string) ([]*dns.CNAME, error) {
 
 func (d *Dig) PTR(domain string) ([]*dns.PTR, error) {
 	m := newMsg(dns.TypePTR, domain)
-	res, err := d.exchange(m)
+	res, err := d.Exchange(m)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +258,7 @@ func (d *Dig) PTR(domain string) ([]*dns.PTR, error) {
 
 func (d *Dig) TXT(domain string) ([]*dns.TXT, error) {
 	m := newMsg(dns.TypeTXT, domain)
-	res, err := d.exchange(m)
+	res, err := d.Exchange(m)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +273,7 @@ func (d *Dig) TXT(domain string) ([]*dns.TXT, error) {
 
 func (d *Dig) AAAA(domain string) ([]*dns.AAAA, error) {
 	m := newMsg(dns.TypeAAAA, domain)
-	res, err := d.exchange(m)
+	res, err := d.Exchange(m)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +288,7 @@ func (d *Dig) AAAA(domain string) ([]*dns.AAAA, error) {
 
 func (d *Dig) MX(domain string) ([]*dns.MX, error) {
 	msg := newMsg(dns.TypeMX, domain)
-	res, err := d.exchange(msg)
+	res, err := d.Exchange(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +303,7 @@ func (d *Dig) MX(domain string) ([]*dns.MX, error) {
 
 func (d *Dig) SRV(domain string) ([]*dns.SRV, error) {
 	msg := newMsg(dns.TypeSRV, domain)
-	res, err := d.exchange(msg)
+	res, err := d.Exchange(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +318,7 @@ func (d *Dig) SRV(domain string) ([]*dns.SRV, error) {
 
 func (d *Dig) CAA(domain string) ([]*dns.CAA, error) {
 	msg := newMsg(dns.TypeCAA, domain)
-	res, err := d.exchange(msg)
+	res, err := d.Exchange(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +333,7 @@ func (d *Dig) CAA(domain string) ([]*dns.CAA, error) {
 
 func (d *Dig) ANY(domain string) ([]dns.RR, error) {
 	m := newMsg(dns.TypeANY, domain)
-	res, err := d.exchange(m)
+	res, err := d.Exchange(m)
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +342,7 @@ func (d *Dig) ANY(domain string) ([]dns.RR, error) {
 
 func (d *Dig) GetRR(Type uint16, domain string) ([]dns.RR, error) {
 	m := newMsg(Type, domain)
-	res, err := d.exchange(m)
+	res, err := d.Exchange(m)
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +351,7 @@ func (d *Dig) GetRR(Type uint16, domain string) ([]dns.RR, error) {
 
 func (d *Dig) GetMsg(Type uint16, domain string) (*dns.Msg, error) {
 	m := newMsg(Type, domain)
-	return d.exchange(m)
+	return d.Exchange(m)
 }
 
 func (d *Dig) edns0clientsubnet(m *dns.Msg) {
