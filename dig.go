@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/miekg/dns"
+	"math/rand"
 	"net"
 	"strings"
 	"time"
@@ -39,6 +40,7 @@ func (d *Dig) dialTimeout() time.Duration {
 	}
 	return dnsTimeout
 }
+
 func (d *Dig) readTimeout() time.Duration {
 	if d.ReadTimeout != 0 {
 		return d.ReadTimeout
@@ -67,6 +69,7 @@ func (d *Dig) remoteAddr() (string, error) {
 	}
 	return d.RemoteAddr, nil
 }
+
 func (d *Dig) conn() (net.Conn, error) {
 	remoteaddr, err := d.remoteAddr()
 	if err != nil {
@@ -77,6 +80,7 @@ func (d *Dig) conn() (net.Conn, error) {
 	}
 	return dial(d.protocol(), d.LocalAddr, remoteaddr, d.dialTimeout())
 }
+
 func dial(network string, local string, remote string, timeout time.Duration) (net.Conn, error) {
 	network = strings.ToLower(network)
 	dialer := new(net.Dialer)
@@ -147,6 +151,9 @@ func (d *Dig) exchange(m *dns.Msg) (*dns.Msg, error) {
 	res, err := c.ReadMsg()
 	if err != nil {
 		return nil, err
+	}
+	if res.Id != m.Id {
+		return res, dns.ErrId
 	}
 	return res, nil
 }
@@ -369,4 +376,77 @@ func (d *Dig) edns0clientsubnet(m *dns.Msg) {
 	o.Hdr.Rrtype = dns.TypeOPT
 	o.Option = append(o.Option, e)
 	m.Extra = append(m.Extra, o)
+}
+
+//TraceResponse  dig +trace 响应
+type TraceResponse struct {
+	Server   string
+	ServerIP string
+	Msg      *dns.Msg
+}
+
+//Trace  类似于 dig +trace
+func (d *Dig) Trace(domain string) ([]TraceResponse, error) {
+	var responses = make([]TraceResponse, 0)
+	var servers = make([]string, 0, 13)
+	var server = randserver(roots)
+	for {
+		if err := d.SetDNS(server); err != nil {
+			return responses, err
+		}
+		msg, err := d.GetMsg(dns.TypeA, domain)
+		if err != nil {
+			return responses, fmt.Errorf("%s:%v", server, err)
+		}
+		var rsp TraceResponse
+		rsp.Server = server
+		rsp.ServerIP = d.RemoteAddr
+		rsp.Msg = msg
+		responses = append(responses, rsp)
+		switch msg.Authoritative {
+		case false:
+			servers = servers[:0]
+			for _, v := range msg.Ns {
+				ns := v.(*dns.NS)
+				servers = append(servers, ns.Ns)
+			}
+			if len(servers) == 0 {
+				return responses, nil
+			}
+			server = randserver(servers)
+		case true:
+			return responses, nil
+		}
+	}
+}
+
+func randserver(servers []string) string {
+	length := len(servers)
+	switch length {
+	case 0:
+		return ""
+	case 1:
+		return servers[0]
+	}
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return servers[r.Intn(length)]
+}
+
+//IsPolluted  返回domain是否被污染
+func IsPolluted(domain string) (bool, error) {
+	var dig Dig
+	rsps, err := dig.Trace(domain)
+	if err != nil {
+		return false, err
+	}
+	length := len(rsps)
+	if length < 1 {
+		//should not have happened
+		return false, fmt.Errorf("empty message")
+	}
+	last := rsps[length-1]
+	if !last.Msg.Authoritative {
+		return true, nil
+	}
+	return false, nil
 }

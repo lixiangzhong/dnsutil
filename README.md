@@ -68,5 +68,59 @@ func main() {
 ```
 
 
-## TODO
-- dig +trace
+```go
+//dig +trace
+
+package main
+
+import (
+	"fmt"
+	"github.com/lixiangzhong/dnsutil"
+)
+
+func main() {
+	domain := "google.com"
+	var dig dnsutil.Dig
+	rsps, err := dig.Trace(domain)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for _, rsp := range rsps {
+		if rsp.Msg.Authoritative {
+			for _, answer := range rsp.Msg.Answer {
+				fmt.Println(answer)
+			}
+		}
+		for _, ns := range rsp.Msg.Ns {
+			fmt.Println(ns)
+		}
+		fmt.Println("\tReceived from", rsp.Server, rsp.ServerIP)
+	}
+}
+```
+
+
+```go
+//检查是否被污染
+
+package main
+
+import (
+	"fmt"
+	"github.com/lixiangzhong/dnsutil"
+)
+
+func main() {
+	polluted, err := dnsutil.IsPolluted("facebook.com")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if polluted {
+		fmt.Println("被污染,你懂的")
+	} else {
+		fmt.Println("正常")
+	}
+}
+```
