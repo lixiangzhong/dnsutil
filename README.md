@@ -22,7 +22,7 @@ import (
 func main() {
     var dig dnsutil.Dig 
     dig.SetDNS("8.8.8.8") //or ns.xxx.com 
-    a, err := dig.A("google.com")  // dig a @8.8.8.8
+    a, err := dig.A("google.com")  // dig google.com @8.8.8.8
     fmt.Println(a, err)
 }
 ```
@@ -42,7 +42,7 @@ func main() {
     var dig dnsutil.Dig
     dig.SetDNS("8.8.8.8") //or ns.xxx.com
     dig.SetEDNS0ClientSubnet("123.123.123.123")   //support edns0clientsubnet
-    a, err := dig.A("google.com")  // dig a @8.8.8.8 +client=123.123.123.123
+    a, err := dig.A("google.com")  // dig google.com @8.8.8.8 +client=123.123.123.123
     fmt.Println(a, err)
 }
 ```
@@ -62,7 +62,7 @@ func main() {
     var dig dnsutil.Dig
     dig.Retry=3 //retry  when write or read message return error . defualt 1
     dig.SetDNS("8.8.8.8") //or ns.xxx.com 
-    a, err := dig.A("google.com")  // dig a @8.8.8.8
+    a, err := dig.A("google.com")  // dig google.com @8.8.8.8
     fmt.Println(a, err)
 }
 ```
@@ -81,7 +81,7 @@ import (
 func main() {
 	domain := "google.com"
 	var dig dnsutil.Dig
-	rsps, err := dig.Trace(domain)
+	rsps, err := dig.Trace(domain)  //dig +trace google.com
 	if err != nil {
 		fmt.Println(err)
 		return
