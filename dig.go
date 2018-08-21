@@ -16,6 +16,7 @@ const (
 
 var roots = []string{"a.root-servers.net", "b.root-servers.net", "d.root-servers.net", "c.root-servers.net", "e.root-servers.net", "f.root-servers.net", "g.root-servers.net", "h.root-servers.net", "i.root-servers.net", "j.root-servers.net", "k.root-servers.net", "l.root-servers.net", "m.root-servers.net"}
 
+//Dig dig
 type Dig struct {
 	LocalAddr    string
 	RemoteAddr   string
@@ -103,6 +104,7 @@ func dial(network string, local string, remote string, timeout time.Duration) (n
 	return dialer.Dial(network, remote)
 }
 
+//NewMsg  返回query msg
 func NewMsg(Type uint16, domain string) *dns.Msg {
 	return newMsg(Type, domain)
 }
@@ -121,6 +123,7 @@ func newMsg(Type uint16, domain string) *dns.Msg {
 	return msg
 }
 
+//Exchange 发送msg 接收响应
 func (d *Dig) Exchange(m *dns.Msg) (*dns.Msg, error) {
 	var msg *dns.Msg
 	var err error
@@ -158,12 +161,14 @@ func (d *Dig) exchange(m *dns.Msg) (*dns.Msg, error) {
 	return res, nil
 }
 
+//SetTimeOut set read write dial timeout
 func (d *Dig) SetTimeOut(t time.Duration) {
 	d.ReadTimeout = t
 	d.WriteTimeout = t
 	d.DialTimeout = t
 }
 
+//SetDNS 设置查询的dns server
 func (d *Dig) SetDNS(host string) error {
 	var ip string
 	port := "53"
@@ -195,6 +200,7 @@ func (d *Dig) SetDNS(host string) error {
 	return errors.New("no such host")
 }
 
+//SetEDNS0ClientSubnet  +client
 func (d *Dig) SetEDNS0ClientSubnet(clientip string) error {
 	ip := net.ParseIP(clientip)
 	if ip.To4() == nil {
@@ -204,6 +210,7 @@ func (d *Dig) SetEDNS0ClientSubnet(clientip string) error {
 	return nil
 }
 
+//A dig a
 func (d *Dig) A(domain string) ([]*dns.A, error) {
 	m := newMsg(dns.TypeA, domain)
 	res, err := d.Exchange(m)
@@ -219,6 +226,7 @@ func (d *Dig) A(domain string) ([]*dns.A, error) {
 	return As, nil
 }
 
+//NS dig ns
 func (d *Dig) NS(domain string) ([]*dns.NS, error) {
 	m := newMsg(dns.TypeNS, domain)
 	res, err := d.Exchange(m)
@@ -233,6 +241,8 @@ func (d *Dig) NS(domain string) ([]*dns.NS, error) {
 	}
 	return Ns, nil
 }
+
+//CNAME dig cname
 func (d *Dig) CNAME(domain string) ([]*dns.CNAME, error) {
 	m := newMsg(dns.TypeCNAME, domain)
 	res, err := d.Exchange(m)
@@ -248,6 +258,7 @@ func (d *Dig) CNAME(domain string) ([]*dns.CNAME, error) {
 	return C, nil
 }
 
+//PTR dig ptr
 func (d *Dig) PTR(domain string) ([]*dns.PTR, error) {
 	m := newMsg(dns.TypePTR, domain)
 	res, err := d.Exchange(m)
@@ -263,6 +274,7 @@ func (d *Dig) PTR(domain string) ([]*dns.PTR, error) {
 	return P, nil
 }
 
+//TXT dig txt
 func (d *Dig) TXT(domain string) ([]*dns.TXT, error) {
 	m := newMsg(dns.TypeTXT, domain)
 	res, err := d.Exchange(m)
@@ -278,6 +290,7 @@ func (d *Dig) TXT(domain string) ([]*dns.TXT, error) {
 	return T, nil
 }
 
+//AAAA dig aaaa
 func (d *Dig) AAAA(domain string) ([]*dns.AAAA, error) {
 	m := newMsg(dns.TypeAAAA, domain)
 	res, err := d.Exchange(m)
@@ -293,6 +306,7 @@ func (d *Dig) AAAA(domain string) ([]*dns.AAAA, error) {
 	return aaaa, nil
 }
 
+//MX dig mx
 func (d *Dig) MX(domain string) ([]*dns.MX, error) {
 	msg := newMsg(dns.TypeMX, domain)
 	res, err := d.Exchange(msg)
@@ -308,6 +322,7 @@ func (d *Dig) MX(domain string) ([]*dns.MX, error) {
 	return M, nil
 }
 
+//SRV dig srv
 func (d *Dig) SRV(domain string) ([]*dns.SRV, error) {
 	msg := newMsg(dns.TypeSRV, domain)
 	res, err := d.Exchange(msg)
@@ -323,6 +338,7 @@ func (d *Dig) SRV(domain string) ([]*dns.SRV, error) {
 	return S, nil
 }
 
+//CAA dig caa
 func (d *Dig) CAA(domain string) ([]*dns.CAA, error) {
 	msg := newMsg(dns.TypeCAA, domain)
 	res, err := d.Exchange(msg)
@@ -338,15 +354,7 @@ func (d *Dig) CAA(domain string) ([]*dns.CAA, error) {
 	return C, nil
 }
 
-func (d *Dig) ANY(domain string) ([]dns.RR, error) {
-	m := newMsg(dns.TypeANY, domain)
-	res, err := d.Exchange(m)
-	if err != nil {
-		return nil, err
-	}
-	return res.Answer, nil
-}
-
+//GetRR 返回ANSWER SECTION
 func (d *Dig) GetRR(Type uint16, domain string) ([]dns.RR, error) {
 	m := newMsg(Type, domain)
 	res, err := d.Exchange(m)
@@ -356,6 +364,7 @@ func (d *Dig) GetRR(Type uint16, domain string) ([]dns.RR, error) {
 	return res.Answer, nil
 }
 
+//GetMsg 返回msg响应体
 func (d *Dig) GetMsg(Type uint16, domain string) (*dns.Msg, error) {
 	m := newMsg(Type, domain)
 	return d.Exchange(m)
