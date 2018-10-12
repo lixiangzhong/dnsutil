@@ -416,8 +416,10 @@ func (d *Dig) Trace(domain string) ([]TraceResponse, error) {
 		case false:
 			servers = servers[:0]
 			for _, v := range msg.Ns {
-				ns := v.(*dns.NS)
-				servers = append(servers, ns.Ns)
+				ns, ok := v.(*dns.NS)
+				if ok {
+					servers = append(servers, ns.Ns)
+				}
 			}
 			if len(servers) == 0 {
 				return responses, nil
