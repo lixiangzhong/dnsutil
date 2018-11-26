@@ -1,6 +1,7 @@
 package dnsutil
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/miekg/dns"
@@ -18,14 +19,15 @@ var roots = []string{"a.root-servers.net", "b.root-servers.net", "d.root-servers
 
 //Dig dig
 type Dig struct {
-	LocalAddr    string
-	RemoteAddr   string
-	EDNSSubnet   net.IP
-	DialTimeout  time.Duration
-	WriteTimeout time.Duration
-	ReadTimeout  time.Duration
-	Protocol     string
-	Retry        int
+	LocalAddr        string
+	RemoteAddr       string
+	BackupRemoteAddr string
+	EDNSSubnet       net.IP
+	DialTimeout      time.Duration
+	WriteTimeout     time.Duration
+	ReadTimeout      time.Duration
+	Protocol         string
+	Retry            int
 }
 
 func (d *Dig) protocol() string {
@@ -66,7 +68,8 @@ func (d *Dig) retry() int {
 func (d *Dig) remoteAddr() (string, error) {
 	_, _, err := net.SplitHostPort(d.RemoteAddr)
 	if err != nil {
-		return d.RemoteAddr, errors.New("forget SetDNS ? " + err.Error())
+
+		return d.RemoteAddr, fmt.Errorf("bad remoteaddr %v ,forget SetDNS ? : %s", d.RemoteAddr, err)
 	}
 	return d.RemoteAddr, nil
 }
@@ -125,6 +128,9 @@ func newMsg(Type uint16, domain string) *dns.Msg {
 
 //Exchange 发送msg 接收响应
 func (d *Dig) Exchange(m *dns.Msg) (*dns.Msg, error) {
+	if d.BackupRemoteAddr != "" {
+		return d.raceExchange(m)
+	}
 	var msg *dns.Msg
 	var err error
 	for i := 0; i < d.retry(); i++ {
@@ -134,6 +140,46 @@ func (d *Dig) Exchange(m *dns.Msg) (*dns.Msg, error) {
 		}
 	}
 	return msg, err
+}
+
+func (d Dig) UseBackup() Dig {
+	d.RemoteAddr, d.BackupRemoteAddr = d.BackupRemoteAddr, ""
+	return d
+}
+
+func (d *Dig) raceExchange(m *dns.Msg) (rsp *dns.Msg, err error) {
+	var rspCh = make(chan *dns.Msg)
+	var errCh = make(chan error)
+	ctx, cancel := context.WithCancel(context.Background())
+	backupdig := d.UseBackup()
+	go d.raceexchange(ctx, m, rspCh, errCh)
+	go backupdig.raceexchange(ctx, m, rspCh, errCh)
+	for i := 0; i < 2; i++ {
+		select {
+		case err = <-errCh:
+		case rsp = <-rspCh:
+			cancel()
+			return rsp, nil
+		}
+	}
+	cancel() //防止 context 泄漏
+	return nil, err
+}
+
+func (d *Dig) raceexchange(ctx context.Context, m *dns.Msg, rspCh chan *dns.Msg, errCh chan error) {
+	rsp, err := d.exchange(m)
+	if err != nil {
+		select {
+		case errCh <- err:
+		default:
+		}
+	} else {
+		select {
+		case <-ctx.Done():
+		default:
+			rspCh <- rsp
+		}
+	}
 }
 
 func (d *Dig) exchange(m *dns.Msg) (*dns.Msg, error) {
@@ -170,6 +216,18 @@ func (d *Dig) SetTimeOut(t time.Duration) {
 
 //SetDNS 设置查询的dns server
 func (d *Dig) SetDNS(host string) error {
+	var err error
+	d.RemoteAddr, err = d.lookupdns(host)
+	return err
+}
+
+func (d *Dig) SetBackupDNS(host string) error {
+	var err error
+	d.BackupRemoteAddr, err = d.lookupdns(host)
+	return err
+}
+
+func (d *Dig) lookupdns(host string) (string, error) {
 	var ip string
 	port := "53"
 	switch strings.Count(host, ":") {
@@ -179,7 +237,7 @@ func (d *Dig) SetDNS(host string) error {
 		var err error
 		ip, port, err = net.SplitHostPort(host)
 		if err != nil {
-			return err
+			return "", err
 		}
 	default: //ipv6
 		if net.ParseIP(host).To16() != nil {
@@ -191,13 +249,13 @@ func (d *Dig) SetDNS(host string) error {
 	}
 	ips, err := net.LookupIP(ip)
 	if err != nil {
-		return err
+		return "", err
 	}
 	for _, addr := range ips {
-		d.RemoteAddr = fmt.Sprintf("[%s]:%v", addr, port)
-		return nil
+		return fmt.Sprintf("[%s]:%v", addr, port), nil
 	}
-	return errors.New("no such host")
+	return "", errors.New("no such host")
+
 }
 
 //SetEDNS0ClientSubnet  +client
