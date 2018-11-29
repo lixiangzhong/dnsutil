@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/miekg/dns"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/miekg/dns"
 )
 
 const (
