@@ -31,6 +31,9 @@ func TestDig_SetDNS(t *testing.T) {
 			if err := d.SetDNS(tt.args.host); (err != nil) != tt.wantErr {
 				t.Errorf("Dig.SetDNS(%v) error = %v, wantErr %v", tt.args.host, err, tt.wantErr)
 			}
+			if err := d.SetBackupDNS(tt.args.host); (err != nil) != tt.wantErr {
+				t.Errorf("Dig.SetBackupDNS(%v) error = %v, wantErr %v", tt.args.host, err, tt.wantErr)
+			}
 			// if _, err := d.A("google.com"); err != nil {
 			// 	t.Errorf("Dig.A(%v) error = %v, wantErr %v", d.RemoteAddr, err, tt.wantErr)
 			// }
