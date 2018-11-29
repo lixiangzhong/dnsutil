@@ -412,6 +412,22 @@ func (d *Dig) CAA(domain string) ([]*dns.CAA, error) {
 	return C, nil
 }
 
+//SPF dig spf
+func (d *Dig) SPF(domain string) ([]*dns.SPF, error) {
+	msg := newMsg(dns.TypeSPF, domain)
+	res, err := d.Exchange(msg)
+	if err != nil {
+		return nil, err
+	}
+	var S []*dns.SPF
+	for _, v := range res.Answer {
+		if s, ok := v.(*dns.SPF); ok {
+			S = append(S, s)
+		}
+	}
+	return S, nil
+}
+
 //GetRR 返回ANSWER SECTION
 func (d *Dig) GetRR(Type uint16, domain string) ([]dns.RR, error) {
 	m := newMsg(Type, domain)
