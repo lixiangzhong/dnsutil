@@ -124,3 +124,29 @@ func main() {
 	}
 }
 ```
+
+
+```go
+//SetBackupDNS
+//同时向设置的2个DNS发起请求,返回最快响应的那个结果
+//Initiate requests to two DNS settings at the same time, returning the fastest response result
+package main
+
+import (
+	"fmt"
+	"github.com/lixiangzhong/dnsutil"
+)
+
+func main() {
+	var dig dnsutil.Dig
+	dig.SetDNS("1.1.1.1")
+	dig.SetBackupDNS("8.8.8.8")
+	a, err := dig.A("google.com")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(a)
+}
+
+```
