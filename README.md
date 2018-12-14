@@ -27,6 +27,35 @@ func main() {
 }
 ```
 
+```go
+//msg
+
+package main
+
+import (
+	"fmt"
+	"github.com/lixiangzhong/dnsutil"
+	"github.com/miekg/dns"
+)
+
+func main() {
+	var dig dnsutil.Dig
+	dig.SetDNS("1.1.1.1")
+	msg, err := dig.GetMsg(dns.TypeA, "google.com")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	// fmt.Println(msg)
+	// or
+	fmt.Println(msg.Question) //question section
+	fmt.Println(msg.Answer)   //answer section.
+	fmt.Println(msg.Ns)       //authority section.
+	fmt.Println(msg.Extra)    //additional section.
+}
+
+```
+
 
 ```go
 //EDNS0ClientSubnet
