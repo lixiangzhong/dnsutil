@@ -429,16 +429,6 @@ func (d *Dig) SPF(domain string) ([]*dns.SPF, error) {
 	return S, nil
 }
 
-//GetRR 返回ANSWER SECTION
-func (d *Dig) GetRR(Type uint16, domain string) ([]dns.RR, error) {
-	m := newMsg(Type, domain)
-	res, err := d.Exchange(m)
-	if err != nil {
-		return nil, err
-	}
-	return res.Answer, nil
-}
-
 //GetMsg 返回msg响应体
 func (d *Dig) GetMsg(Type uint16, domain string) (*dns.Msg, error) {
 	m := newMsg(Type, domain)
