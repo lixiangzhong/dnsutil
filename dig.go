@@ -460,8 +460,8 @@ type TraceResponse struct {
 	Msg      *dns.Msg
 }
 
-//Trace  类似于 dig +trace
-func (d *Dig) Trace(domain string) ([]TraceResponse, error) {
+//Trace  类似于 dig +trace -t msqType
+func (d *Dig) TraceForRecord(domain string, msgType uint16) ([]TraceResponse, error) {
 	var responses = make([]TraceResponse, 0)
 	var servers = make([]string, 0, 13)
 	var server = randserver(roots)
@@ -469,7 +469,7 @@ func (d *Dig) Trace(domain string) ([]TraceResponse, error) {
 		if err := d.SetDNS(server); err != nil {
 			return responses, err
 		}
-		msg, err := d.GetMsg(dns.TypeA, domain)
+		msg, err := d.GetMsg(msgType, domain)
 		if err != nil {
 			return responses, fmt.Errorf("%s:%v", server, err)
 		}
@@ -495,6 +495,11 @@ func (d *Dig) Trace(domain string) ([]TraceResponse, error) {
 			return responses, nil
 		}
 	}
+}
+
+//Trace  类似于 dig +trace
+func (d *Dig) Trace(domain string) ([]TraceResponse, error) {
+	return d.TraceForRecord(domain, dns.TypeA)
 }
 
 func randserver(servers []string) string {
