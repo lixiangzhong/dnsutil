@@ -222,6 +222,13 @@ func (d *Dig) SetDNS(host string) error {
 	return err
 }
 
+//At 设置查询的dns server,同SetDNS,只是更加语义化
+func (d *Dig) At(host string) error {
+	var err error
+	d.RemoteAddr, err = d.lookupdns(host)
+	return err
+}
+
 //SetBackupDNS  设置后查询DNS将同时向两个server发起请求,并响应第一个收到的msg
 func (d *Dig) SetBackupDNS(host string) error {
 	var err error
