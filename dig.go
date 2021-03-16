@@ -69,8 +69,11 @@ func (d *Dig) retry() int {
 func (d *Dig) remoteAddr() (string, error) {
 	_, _, err := net.SplitHostPort(d.RemoteAddr)
 	if err != nil {
-
-		return d.RemoteAddr, fmt.Errorf("bad remoteaddr %v ,forget SetDNS ? : %s", d.RemoteAddr, err)
+		if ns, e := nameserver(); e == nil {
+			d.RemoteAddr = net.JoinHostPort(ns, "53")
+		} else {
+			return d.RemoteAddr, fmt.Errorf("bad remoteaddr %v ,forget SetDNS ? : %s", d.RemoteAddr, err)
+		}
 	}
 	return d.RemoteAddr, nil
 }
@@ -216,6 +219,7 @@ func (d *Dig) SetTimeOut(t time.Duration) {
 }
 
 //SetDNS 设置查询的dns server
+//Deprecated: use At
 func (d *Dig) SetDNS(host string) error {
 	var err error
 	d.RemoteAddr, err = d.lookupdns(host)
