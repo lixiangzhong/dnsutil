@@ -29,6 +29,7 @@ type Dig struct {
 	ReadTimeout      time.Duration
 	Protocol         string
 	Retry            int
+	Fallback         bool //if Truncated == true; udp -> tcp
 }
 
 func (d *Dig) protocol() string {
@@ -203,6 +204,14 @@ func (d *Dig) exchange(ctx context.Context, m *dns.Msg) (*dns.Msg, error) {
 	}
 	if res.Id != m.Id {
 		return res, dns.ErrId
+	}
+	if d.protocol() == "udp" && res.Truncated && d.Fallback {
+		dig := *d
+		dig.Protocol = "tcp"
+		res, err := dig.exchange(ctx, m)
+		if err == nil {
+			return res, nil
+		}
 	}
 	return res, nil
 }
