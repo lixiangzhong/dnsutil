@@ -78,37 +78,28 @@ func (d *Dig) remoteAddr() (string, error) {
 	return d.RemoteAddr, nil
 }
 
-func (d *Dig) conn() (net.Conn, error) {
+func (d *Dig) conn(ctx context.Context) (net.Conn, error) {
 	remoteaddr, err := d.remoteAddr()
 	if err != nil {
 		return nil, err
 	}
-	if d.LocalAddr == "" {
-		return net.DialTimeout(d.protocol(), remoteaddr, d.dialTimeout())
+	di := net.Dialer{Timeout: d.dialTimeout()}
+	if d.LocalAddr != "" {
+		di.LocalAddr, err = resolveLocalAddr(d.protocol(), d.LocalAddr)
 	}
-	return dial(d.protocol(), d.LocalAddr, remoteaddr, d.dialTimeout())
+	return di.DialContext(ctx, d.protocol(), remoteaddr)
 }
 
-func dial(network string, local string, remote string, timeout time.Duration) (net.Conn, error) {
+func resolveLocalAddr(network string, laddr string) (net.Addr, error) {
 	network = strings.ToLower(network)
-	dialer := new(net.Dialer)
-	dialer.Timeout = timeout
-	local = local + ":0" //端口0,系统会自动分配本机端口
+	laddr += ":0"
 	switch network {
 	case "udp":
-		addr, err := net.ResolveUDPAddr(network, local)
-		if err != nil {
-			return nil, err
-		}
-		dialer.LocalAddr = addr
+		return net.ResolveUDPAddr(network, laddr)
 	case "tcp":
-		addr, err := net.ResolveTCPAddr(network, local)
-		if err != nil {
-			return nil, err
-		}
-		dialer.LocalAddr = addr
+		return net.ResolveTCPAddr(network, laddr)
 	}
-	return dialer.Dial(network, remote)
+	return nil, errors.New("unknown network:" + network)
 }
 
 //NewMsg  返回query msg
@@ -138,7 +129,7 @@ func (d *Dig) Exchange(m *dns.Msg) (*dns.Msg, error) {
 	var msg *dns.Msg
 	var err error
 	for i := 0; i < d.retry(); i++ {
-		msg, err = d.exchange(m)
+		msg, err = d.exchange(context.TODO(), m)
 		if err == nil {
 			return msg, err
 		}
@@ -151,56 +142,61 @@ func (d Dig) UseBackup() Dig {
 	return d
 }
 
-func (d *Dig) raceExchange(m *dns.Msg) (rsp *dns.Msg, err error) {
-	var rspCh = make(chan *dns.Msg)
-	var errCh = make(chan error)
+type raceResult struct {
+	data *dns.Msg
+	err  error
+}
+
+func (d *Dig) raceExchange(m *dns.Msg) (*dns.Msg, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	backupdig := d.UseBackup()
-	go d.raceexchange(ctx, m, rspCh, errCh)
-	go backupdig.raceexchange(ctx, m, rspCh, errCh)
-	for i := 0; i < 2; i++ {
-		select {
-		case err = <-errCh:
-		case rsp = <-rspCh:
-			cancel()
-			return rsp, nil
+	defer cancel()
+	var rspCh = make(chan raceResult, 2)
+	go func() {
+		rsp, err := d.exchange(ctx, m)
+		rspCh <- raceResult{
+			data: rsp,
+			err:  err,
+		}
+	}()
+	go func() {
+		dig := d.UseBackup()
+		rsp, err := dig.exchange(ctx, m)
+		rspCh <- raceResult{
+			data: rsp,
+			err:  err,
+		}
+	}()
+	var err error
+	var i int
+	for rsp := range rspCh {
+		i++
+		if rsp.err == nil {
+			return rsp.data, nil
+		}
+		err = rsp.err
+		if i == 2 {
+			break
 		}
 	}
-	cancel() //防止 context 泄漏
+	close(rspCh)
 	return nil, err
 }
 
-func (d *Dig) raceexchange(ctx context.Context, m *dns.Msg, rspCh chan *dns.Msg, errCh chan error) {
-	rsp, err := d.exchange(m)
-	if err != nil {
-		select {
-		case errCh <- err:
-		default:
-		}
-	} else {
-		select {
-		case <-ctx.Done():
-		default:
-			rspCh <- rsp
-		}
-	}
-}
-
-func (d *Dig) exchange(m *dns.Msg) (*dns.Msg, error) {
+func (d *Dig) exchange(ctx context.Context, m *dns.Msg) (*dns.Msg, error) {
 	var err error
 	c := new(dns.Conn)
-	c.Conn, err = d.conn()
+	c.Conn, err = d.conn(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer c.Close()
 	c.SetWriteDeadline(time.Now().Add(d.writeTimeout()))
-	c.SetReadDeadline(time.Now().Add(d.readTimeout()))
 	d.edns0clientsubnet(m)
 	err = c.WriteMsg(m)
 	if err != nil {
 		return nil, err
 	}
+	c.SetReadDeadline(time.Now().Add(d.readTimeout()))
 	res, err := c.ReadMsg()
 	if err != nil {
 		return nil, err
