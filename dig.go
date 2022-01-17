@@ -302,6 +302,22 @@ func (d *Dig) A(domain string) ([]*dns.A, error) {
 	return As, nil
 }
 
+//SOA dig soa
+func (d *Dig) SOA(domain string) ([]*dns.SOA, error) {
+	m := newMsg(dns.TypeSOA, domain)
+	res, err := d.Exchange(m)
+	if err != nil {
+		return nil, err
+	}
+	var As []*dns.SOA
+	for _, v := range res.Answer {
+		if a, ok := v.(*dns.SOA); ok {
+			As = append(As, a)
+		}
+	}
+	return As, nil
+}
+
 //NS dig ns
 func (d *Dig) NS(domain string) ([]*dns.NS, error) {
 	m := newMsg(dns.TypeNS, domain)
