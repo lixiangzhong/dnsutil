@@ -279,8 +279,8 @@ func (d *Dig) lookupdns(host string) (string, error) {
 //SetEDNS0ClientSubnet  +client
 func (d *Dig) SetEDNS0ClientSubnet(clientip string) error {
 	ip := net.ParseIP(clientip)
-	if ip.To4() == nil {
-		return errors.New("not a ipv4")
+	if ip.To4() == nil && ip.To16() == nil {
+		return errors.New("not a ipv4 or ipv6")
 	}
 	d.EDNSSubnet = ip
 	return nil
@@ -472,10 +472,21 @@ func (d *Dig) edns0clientsubnet(m *dns.Msg) {
 	if d.EDNSSubnet == nil {
 		return
 	}
+	var fCode uint16
+	var netMask uint8
+	edsStr := fmt.Sprintf("%s", d.EDNSSubnet)
+	if strings.Contains(edsStr, ":") {
+		fCode = 2
+		netMask = 64
+	} else {
+		fCode = 1
+		netMask = 32
+	}
+
 	e := &dns.EDNS0_SUBNET{
 		Code:          dns.EDNS0SUBNET,
-		Family:        1,  //ipv4
-		SourceNetmask: 32, //ipv4
+		Family:        fCode,
+		SourceNetmask: netMask,
 		Address:       d.EDNSSubnet,
 	}
 	o := new(dns.OPT)
