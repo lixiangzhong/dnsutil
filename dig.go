@@ -30,6 +30,7 @@ type Dig struct {
 	Protocol         string
 	Retry            int
 	Fallback         bool //if Truncated == true; udp -> tcp
+	nilRetry         int  //if Truncated == true; udp -> tcp
 }
 
 func (d *Dig) protocol() string {
