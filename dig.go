@@ -492,6 +492,7 @@ func (d *Dig) edns0clientsubnet(m *dns.Msg) {
 	}
 	o := new(dns.OPT)
 	o.Hdr.Name = "."
+	o.SetUDPSize(4096)
 	o.Hdr.Rrtype = dns.TypeOPT
 	o.Option = append(o.Option, e)
 	m.Extra = append(m.Extra, o)
