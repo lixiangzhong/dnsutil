@@ -139,7 +139,7 @@ func (d *Dig) Exchange(m *dns.Msg) (*dns.Msg, error) {
 	return msg, err
 }
 
-func (d Dig) UseBackup() Dig {
+func (d *Dig) UseBackup() *Dig {
 	d.RemoteAddr, d.BackupRemoteAddr = d.BackupRemoteAddr, ""
 	return d
 }
